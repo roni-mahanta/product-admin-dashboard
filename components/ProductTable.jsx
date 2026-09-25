@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export default function ProductTable({
   products,
   onEdit,
@@ -43,17 +45,20 @@ export default function ProductTable({
               className="border-b hover:bg-gray-50"
             >
               <td className="px-4 py-4">
-                <div className="flex items-center gap-3">
+                <Link
+                  href={`/products/${product.id}`}
+                  className="flex items-center gap-3 group"
+                >
                   <img
                     src={product.thumbnail}
                     alt={product.title}
                     className="w-14 h-14 object-cover rounded-lg"
                   />
 
-                  <span className="font-medium text-gray-800">
+                  <span className="font-medium text-gray-800 group-hover:text-blue-600">
                     {product.title}
                   </span>
-                </div>
+                </Link>
               </td>
 
               <td className="px-4 py-4 text-gray-600 capitalize">
@@ -74,6 +79,13 @@ export default function ProductTable({
 
               <td className="px-4 py-4">
                 <div className="flex gap-2">
+                  <Link
+                    href={`/products/${product.id}`}
+                    className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    View
+                  </Link>
+
                   <button
                     onClick={() => onEdit(product)}
                     className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
