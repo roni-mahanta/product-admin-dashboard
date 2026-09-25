@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import api from "../../lib/axios";
@@ -111,10 +111,8 @@ export default function DashboardPage() {
   }, []);
 
   // FETCH PRODUCTS
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchProducts = async () => {
+  const fetchProducts = useCallback(
+    async (signal) => {
       try {
         setLoading(true);
         setError("");
@@ -150,15 +148,15 @@ export default function DashboardPage() {
         }
 
         const response = await api.get(url, {
-          signal: controller.signal,
+          signal,
         });
 
-        if (controller.signal.aborted) {
+        if (signal?.aborted) {
           return;
         }
 
-        setProducts(response.data.products);
-        setTotal(response.data.total);
+        setProducts(response.data.products || []);
+        setTotal(response.data.total || 0);
       } catch (error) {
         if (
           error.name === "CanceledError" ||
@@ -169,29 +167,44 @@ export default function DashboardPage() {
 
         console.error(error);
 
+        setProducts([]);
+        setTotal(0);
+
         setError(
-          "Failed to load products. Please try again."
+          "Failed to load products. Please check your connection and try again."
         );
       } finally {
-        if (!controller.signal.aborted) {
+        if (!signal?.aborted) {
           setLoading(false);
         }
       }
-    };
+    },
+    [
+      searchQuery,
+      category,
+      sortBy,
+      sortOrder,
+      page,
+      limit,
+    ]
+  );
 
-    fetchProducts();
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchProducts(controller.signal);
 
     return () => {
       controller.abort();
     };
-  }, [
-    searchQuery,
-    category,
-    sortBy,
-    sortOrder,
-    page,
-    limit,
-  ]);
+  }, [fetchProducts]);
+
+  // CLEAR SEARCH / FILTERS
+  const handleClearFilters = () => {
+    setSearchInput("");
+
+    router.push("/dashboard?page=1");
+  };
 
   // CATEGORY CHANGE
   const handleCategoryChange = (newCategory) => {
@@ -380,28 +393,47 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
+  // NAVBAR
+  const renderNavbar = () => {
+    return (
+      <nav className="bg-white shadow px-4 md:px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-800">
+          Product Admin
+        </h1>
+
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
+        >
+          Logout
+        </button>
+      </nav>
+    );
+  };
+
   // LOADING STATE
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-100">
-        <nav className="bg-white shadow px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">
-            Product Admin
-          </h1>
-
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
-          >
-            Logout
-          </button>
-        </nav>
+        {renderNavbar()}
 
         <section className="p-4 md:p-6">
-          <div className="bg-white rounded-xl shadow p-8 text-center">
-            <p className="text-gray-600">
-              Loading products...
-            </p>
+          <div className="bg-white rounded-xl shadow p-6 md:p-8">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-40 mb-3" />
+
+              <div className="h-4 bg-gray-200 rounded w-64 mb-8" />
+
+              <div className="h-12 bg-gray-200 rounded w-full mb-4" />
+
+              <div className="space-y-4">
+                <div className="h-16 bg-gray-200 rounded" />
+                <div className="h-16 bg-gray-200 rounded" />
+                <div className="h-16 bg-gray-200 rounded" />
+                <div className="h-16 bg-gray-200 rounded" />
+                <div className="h-16 bg-gray-200 rounded" />
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -412,28 +444,25 @@ export default function DashboardPage() {
   if (error) {
     return (
       <main className="min-h-screen bg-gray-100">
-        <nav className="bg-white shadow px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">
-            Product Admin
-          </h1>
+        {renderNavbar()}
 
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
-          >
-            Logout
-          </button>
-        </nav>
+        <section className="min-h-[70vh] flex items-center justify-center p-6">
+          <div className="bg-white rounded-xl shadow p-8 md:p-12 text-center max-w-lg w-full">
+            <div className="text-6xl mb-5">
+              ⚠️
+            </div>
 
-        <section className="p-4 md:p-6">
-          <div className="bg-white rounded-xl shadow p-8 text-center">
-            <p className="text-red-600 mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+              Unable to Load Products
+            </h2>
+
+            <p className="text-gray-500 mb-6">
               {error}
             </p>
 
             <button
               onClick={() => window.location.reload()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition"
             >
               Retry
             </button>
@@ -446,21 +475,11 @@ export default function DashboardPage() {
   // DASHBOARD
   return (
     <main className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-800">
-          Product Admin
-        </h1>
-
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
-        >
-          Logout
-        </button>
-      </nav>
+      {renderNavbar()}
 
       <section className="p-4 md:p-6">
         <div className="bg-white rounded-xl shadow overflow-hidden">
+          {/* HEADER */}
           <div className="p-4 md:p-6 border-b">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -482,13 +501,14 @@ export default function DashboardPage() {
 
                   <button
                     onClick={handleAddProduct}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg font-medium whitespace-nowrap"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg font-medium whitespace-nowrap transition"
                   >
                     + Add Product
                   </button>
                 </div>
               </div>
 
+              {/* FILTERS */}
               <ProductFilters
                 category={category}
                 sortBy={sortBy}
@@ -501,6 +521,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* ACTIVE SEARCH */}
           {searchQuery && (
             <div className="px-4 md:px-6 py-3 bg-gray-50 border-b">
               <p className="text-sm text-gray-600">
@@ -512,21 +533,41 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* EMPTY STATE */}
           {products.length === 0 ? (
-            <div className="p-10 text-center">
-              <p className="text-gray-500">
-                No products found.
+            <div className="p-10 md:p-16 text-center">
+              <div className="text-6xl mb-5">
+                📦
+              </div>
+
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                No Products Found
+              </h3>
+
+              <p className="text-gray-500 max-w-md mx-auto">
+                We couldn't find any products matching your
+                current search or filters.
               </p>
 
-              <button
-                onClick={handleAddProduct}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg"
-              >
-                Add Product
-              </button>
+              <div className="flex flex-col sm:flex-row justify-center gap-3 mt-6">
+                <button
+                  onClick={handleClearFilters}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg transition"
+                >
+                  Clear Search & Filters
+                </button>
+
+                <button
+                  onClick={handleAddProduct}
+                  className="border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-3 rounded-lg transition"
+                >
+                  + Add Product
+                </button>
+              </div>
             </div>
           ) : (
             <>
+              {/* DESKTOP TABLE */}
               <div className="hidden md:block">
                 <ProductTable
                   products={products}
@@ -535,6 +576,7 @@ export default function DashboardPage() {
                 />
               </div>
 
+              {/* MOBILE CARDS */}
               <div className="block md:hidden">
                 {products.map((product) => (
                   <ProductCard
@@ -546,6 +588,7 @@ export default function DashboardPage() {
                 ))}
               </div>
 
+              {/* PAGINATION */}
               <Pagination
                 page={page}
                 limit={limit}
@@ -558,6 +601,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* PRODUCT FORM */}
       {showForm && (
         <ProductForm
           product={editingProduct}
