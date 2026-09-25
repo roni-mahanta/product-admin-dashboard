@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-import api from "../../../lib/axios";
+import { getProduct } from "../../../lib/productApi";
 
 export default function ProductDetailsPage() {
   const params = useParams();
@@ -38,14 +38,14 @@ export default function ProductDetailsPage() {
       setError("");
       setProduct(null);
 
-      const response = await api.get(`/products/${productId}`);
+      const data = await getProduct(productId);
 
-      setProduct(response.data);
+      setProduct(data);
 
-      if (response.data.images?.length > 0) {
-        setSelectedImage(response.data.images[0]);
-      } else if (response.data.thumbnail) {
-        setSelectedImage(response.data.thumbnail);
+      if (data.images?.length > 0) {
+        setSelectedImage(data.images[0]);
+      } else if (data.thumbnail) {
+        setSelectedImage(data.thumbnail);
       }
     } catch (error) {
       console.error("Failed to load product:", error);
@@ -175,7 +175,6 @@ export default function ProductDetailsPage() {
     );
   }
 
-  // SAFETY CHECK
   if (!product) {
     return null;
   }
@@ -209,7 +208,6 @@ export default function ProductDetailsPage() {
       {/* CONTENT */}
       <section className="p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
-          {/* BACK BUTTON */}
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-5"
@@ -235,7 +233,6 @@ export default function ProductDetailsPage() {
                   )}
                 </div>
 
-                {/* IMAGE THUMBNAILS */}
                 {images.length > 0 && (
                   <div className="flex gap-3 mt-4 overflow-x-auto pb-2">
                     {images.map((image, index) => (
@@ -299,7 +296,6 @@ export default function ProductDetailsPage() {
                   </span>
                 </div>
 
-                {/* DESCRIPTION */}
                 <div className="mt-8">
                   <h2 className="text-lg font-semibold text-gray-800 mb-2">
                     Description
@@ -311,7 +307,6 @@ export default function ProductDetailsPage() {
                   </p>
                 </div>
 
-                {/* PRODUCT INFORMATION */}
                 <div className="mt-8 border-t pt-6">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">
                     Product Information
@@ -359,7 +354,6 @@ export default function ProductDetailsPage() {
                   </div>
                 </div>
 
-                {/* TAGS */}
                 {product.tags?.length > 0 && (
                   <div className="mt-8">
                     <h2 className="text-lg font-semibold text-gray-800 mb-3">

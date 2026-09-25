@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
 import api from "../../lib/axios";
 
 export default function LoginPage() {
@@ -18,8 +19,8 @@ export default function LoginPage() {
 
     setError("");
 
-    if (!username || !password) {
-      setError("Please enter username and password");
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter username and password.");
       return;
     }
 
@@ -27,7 +28,7 @@ export default function LoginPage() {
       setLoading(true);
 
       const response = await api.post("/auth/login", {
-        username,
+        username: username.trim(),
         password,
         expiresInMins: 30,
       });
@@ -40,9 +41,11 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (error) {
       if (error.response?.status === 400) {
-        setError("Invalid username or password");
+        setError("Invalid username or password.");
       } else {
-        setError("Something went wrong. Please try again.");
+        setError(
+          "Unable to login right now. Please try again."
+        );
       }
     } finally {
       setLoading(false);
@@ -50,81 +53,103 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+    <main className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+        {/* HEADER */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Product Admin
+          </h1>
 
-        <h1 className="text-3xl font-bold text-center text-gray-800">
-          Product Admin
-        </h1>
+          <p className="text-gray-600 mt-2">
+            Login to your dashboard
+          </p>
+        </div>
 
-        <p className="text-center text-gray-500 mt-2 mb-8">
-          Login to your dashboard
-        </p>
-
+        {/* LOGIN FORM */}
         <form onSubmit={handleLogin} className="space-y-5">
-
-          {/* Username */}
+          {/* USERNAME */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="username"
+              className="block text-sm font-semibold text-gray-800 mb-2"
+            >
               Username
             </label>
 
             <input
+              id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter username"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              autoComplete="username"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-400 bg-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             />
           </div>
 
-          {/* Password */}
+          {/* PASSWORD */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-semibold text-gray-800 mb-2"
+            >
               Password
             </label>
 
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              autoComplete="current-password"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-400 bg-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             />
           </div>
 
-          {/* Error */}
+          {/* ERROR */}
           {error && (
-            <div className="bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div
+              role="alert"
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
+            >
               {error}
             </div>
           )}
 
-          {/* Login button */}
+          {/* LOGIN BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-lg transition"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
-
         </form>
 
-        <div className="mt-6 bg-gray-50 rounded-lg p-4 text-sm">
-          <p className="font-semibold text-gray-700">
-            Test credentials
+        {/* DEMO CREDENTIALS */}
+        <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <p className="font-semibold text-gray-800 text-sm">
+            Demo credentials
           </p>
 
-          <p className="text-gray-600 mt-1">
-            Username: <span className="font-medium">emilys</span>
-          </p>
+          <div className="mt-2 space-y-1 text-sm">
+            <p className="text-gray-700">
+              Username:{" "}
+              <span className="font-medium text-gray-900">
+                emilys
+              </span>
+            </p>
 
-          <p className="text-gray-600">
-            Password: <span className="font-medium">emilyspass</span>
-          </p>
+            <p className="text-gray-700">
+              Password:{" "}
+              <span className="font-medium text-gray-900">
+                emilyspass
+              </span>
+            </p>
+          </div>
         </div>
-
       </div>
     </main>
   );

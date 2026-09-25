@@ -11,12 +11,11 @@ export default function ProductFilters({
 }) {
   return (
     <div className="flex flex-col sm:flex-row gap-3">
-      {/* Category Filter */}
-
       <select
         value={category}
         onChange={(e) => onCategoryChange(e.target.value)}
-        className="border border-gray-300 rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="Filter by category"
+        className="border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 font-medium outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
       >
         <option value="">All Categories</option>
 
@@ -27,12 +26,11 @@ export default function ProductFilters({
         ))}
       </select>
 
-      {/* Sort By */}
-
       <select
         value={sortBy}
         onChange={(e) => onSortByChange(e.target.value)}
-        className="border border-gray-300 rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="Sort products by"
+        className="border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 font-medium outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
       >
         <option value="">Sort By</option>
         <option value="price">Price</option>
@@ -40,13 +38,12 @@ export default function ProductFilters({
         <option value="title">Title</option>
       </select>
 
-      {/* Sort Order */}
-
       <select
         value={sortOrder}
         onChange={(e) => onSortOrderChange(e.target.value)}
         disabled={!sortBy}
-        className="border border-gray-300 rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+        aria-label="Sort order"
+        className="border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 font-medium outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-500"
       >
         <option value="asc">Ascending</option>
         <option value="desc">Descending</option>

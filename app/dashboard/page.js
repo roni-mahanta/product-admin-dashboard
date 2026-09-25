@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import api from "../../lib/axios";
+import {
+  createProduct,
+  deleteProduct,
+  getCategories,
+  getProducts,
+  updateProduct,
+} from "../../lib/productApi";
 
 import ProductTable from "../../components/ProductTable";
 import ProductCard from "../../components/ProductCard";
@@ -22,19 +28,23 @@ export default function DashboardPage() {
   const sortBy = searchParams.get("sortBy") || "";
   const sortOrder = searchParams.get("sortOrder") || "asc";
 
-  const pageParam = Number(searchParams.get("page")) || 1;
-  const limitParam = Number(searchParams.get("limit")) || 10;
+  const rawPage = Number(searchParams.get("page"));
+  const rawLimit = Number(searchParams.get("limit"));
 
   const allowedLimits = [10, 20, 50];
 
-  const page = pageParam < 1 ? 1 : pageParam;
+  const page =
+    Number.isInteger(rawPage) && rawPage > 0
+      ? rawPage
+      : 1;
 
-  const limit = allowedLimits.includes(limitParam)
-    ? limitParam
+  const limit = allowedLimits.includes(rawLimit)
+    ? rawLimit
     : 10;
 
   // STATE
-  const [searchInput, setSearchInput] = useState(searchQuery);
+  const [searchInput, setSearchInput] =
+    useState(searchQuery);
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -46,8 +56,11 @@ export default function DashboardPage() {
 
   // CRUD STATE
   const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [editingProduct, setEditingProduct] =
+    useState(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] =
+    useState(false);
 
   // PROTECT DASHBOARD
   useEffect(() => {
@@ -96,9 +109,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await api.get("/products/categories");
+        const data = await getCategories();
 
-        setCategories(response.data);
+        setCategories(data);
       } catch (error) {
         console.error(
           "Failed to load categories:",
@@ -117,37 +130,13 @@ export default function DashboardPage() {
         setLoading(true);
         setError("");
 
-        const skip = (page - 1) * limit;
-
-        let url;
-
-        if (searchQuery) {
-          url =
-            `/products/search?q=${encodeURIComponent(
-              searchQuery
-            )}` +
-            `&limit=${limit}&skip=${skip}`;
-        } else if (category) {
-          url =
-            `/products/category/${encodeURIComponent(
-              category
-            )}` +
-            `?limit=${limit}&skip=${skip}`;
-        } else {
-          url = `/products?limit=${limit}&skip=${skip}`;
-        }
-
-        if (sortBy) {
-          const separator = url.includes("?")
-            ? "&"
-            : "?";
-
-          url +=
-            `${separator}sortBy=${sortBy}` +
-            `&order=${sortOrder}`;
-        }
-
-        const response = await api.get(url, {
+        const data = await getProducts({
+          search: searchQuery,
+          category,
+          sortBy,
+          sortOrder,
+          page,
+          limit,
           signal,
         });
 
@@ -155,8 +144,8 @@ export default function DashboardPage() {
           return;
         }
 
-        setProducts(response.data.products || []);
-        setTotal(response.data.total || 0);
+        setProducts(data.products || []);
+        setTotal(data.total || 0);
       } catch (error) {
         if (
           error.name === "CanceledError" ||
@@ -254,6 +243,10 @@ export default function DashboardPage() {
 
   // PAGE CHANGE
   const handlePageChange = (newPage) => {
+    if (newPage < 1) {
+      return;
+    }
+
     const params = new URLSearchParams(
       searchParams.toString()
     );
@@ -265,6 +258,10 @@ export default function DashboardPage() {
 
   // LIMIT CHANGE
   const handleLimitChange = (newLimit) => {
+    if (!allowedLimits.includes(newLimit)) {
+      return;
+    }
+
     const params = new URLSearchParams(
       searchParams.toString()
     );
@@ -277,12 +274,20 @@ export default function DashboardPage() {
 
   // OPEN ADD FORM
   const handleAddProduct = () => {
+    if (formLoading) {
+      return;
+    }
+
     setEditingProduct(null);
     setShowForm(true);
   };
 
   // OPEN EDIT FORM
   const handleEditProduct = (product) => {
+    if (formLoading || deleteLoading) {
+      return;
+    }
+
     setEditingProduct(product);
     setShowForm(true);
   };
@@ -299,18 +304,22 @@ export default function DashboardPage() {
 
   // ADD / EDIT PRODUCT
   const handleSubmitProduct = async (productData) => {
+    if (formLoading) {
+      return;
+    }
+
     try {
       setFormLoading(true);
 
       if (editingProduct) {
-        const response = await api.put(
-          `/products/${editingProduct.id}`,
+        const data = await updateProduct(
+          editingProduct.id,
           productData
         );
 
         const updatedProduct = {
           ...editingProduct,
-          ...response.data,
+          ...data,
         };
 
         setProducts((currentProducts) =>
@@ -321,15 +330,12 @@ export default function DashboardPage() {
           )
         );
       } else {
-        const response = await api.post(
-          "/products/add",
-          productData
-        );
+        const data = await createProduct(productData);
 
         const newProduct = {
-          ...response.data,
+          ...data,
           thumbnail:
-            response.data.thumbnail ||
+            data.thumbnail ||
             "https://dummyjson.com/image/100x100",
         };
 
@@ -356,6 +362,10 @@ export default function DashboardPage() {
 
   // DELETE PRODUCT
   const handleDeleteProduct = async (product) => {
+    if (deleteLoading) {
+      return;
+    }
+
     const confirmed = window.confirm(
       `Are you sure you want to delete "${product.title}"?`
     );
@@ -365,7 +375,9 @@ export default function DashboardPage() {
     }
 
     try {
-      await api.delete(`/products/${product.id}`);
+      setDeleteLoading(true);
+
+      await deleteProduct(product.id);
 
       setProducts((currentProducts) =>
         currentProducts.filter(
@@ -382,6 +394,8 @@ export default function DashboardPage() {
       alert(
         "Unable to delete the product. Please try again."
       );
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -410,6 +424,64 @@ export default function DashboardPage() {
       </nav>
     );
   };
+
+  // INVALID PAGE
+  const totalPages = Math.ceil(total / limit);
+
+  if (
+    !loading &&
+    total > 0 &&
+    page > totalPages
+  ) {
+    return (
+      <main className="min-h-screen bg-gray-100">
+        {renderNavbar()}
+
+        <section className="min-h-[70vh] flex items-center justify-center p-6">
+          <div className="bg-white rounded-xl shadow p-8 text-center max-w-lg w-full">
+            <div className="text-6xl mb-5">
+              📄
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+              Page Not Found
+            </h2>
+
+            <p className="text-gray-500 mb-6">
+              Page {page} does not exist for the current
+              product results.
+            </p>
+
+            <button
+              onClick={() =>
+                router.push(
+                  `/dashboard?${new URLSearchParams({
+                    ...(searchQuery && {
+                      search: searchQuery,
+                    }),
+                    ...(category && {
+                      category,
+                    }),
+                    ...(sortBy && {
+                      sortBy,
+                    }),
+                    ...(sortBy && {
+                      sortOrder,
+                    }),
+                    limit: String(limit),
+                    page: "1",
+                  }).toString()}`
+                )
+              }
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
+            >
+              Go to Page 1
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   // LOADING STATE
   if (loading) {
@@ -462,7 +534,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => window.location.reload()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
             >
               Retry
             </button>
@@ -501,7 +573,8 @@ export default function DashboardPage() {
 
                   <button
                     onClick={handleAddProduct}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg font-medium whitespace-nowrap transition"
+                    disabled={formLoading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-3 rounded-lg font-medium whitespace-nowrap transition"
                   >
                     + Add Product
                   </button>
@@ -552,14 +625,14 @@ export default function DashboardPage() {
               <div className="flex flex-col sm:flex-row justify-center gap-3 mt-6">
                 <button
                   onClick={handleClearFilters}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg transition"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg"
                 >
                   Clear Search & Filters
                 </button>
 
                 <button
                   onClick={handleAddProduct}
-                  className="border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-3 rounded-lg transition"
+                  className="border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-3 rounded-lg"
                 >
                   + Add Product
                 </button>

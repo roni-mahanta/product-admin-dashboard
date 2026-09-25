@@ -12,27 +12,27 @@ export default function ProductTable({
       <table className="w-full text-left">
         <thead>
           <tr className="border-b bg-gray-50">
-            <th className="px-4 py-3 text-sm font-semibold text-gray-600">
+            <th className="px-4 py-4 text-sm font-bold text-gray-800">
               Product
             </th>
 
-            <th className="px-4 py-3 text-sm font-semibold text-gray-600">
+            <th className="px-4 py-4 text-sm font-bold text-gray-800">
               Category
             </th>
 
-            <th className="px-4 py-3 text-sm font-semibold text-gray-600">
+            <th className="px-4 py-4 text-sm font-bold text-gray-800">
               Price
             </th>
 
-            <th className="px-4 py-3 text-sm font-semibold text-gray-600">
+            <th className="px-4 py-4 text-sm font-bold text-gray-800">
               Rating
             </th>
 
-            <th className="px-4 py-3 text-sm font-semibold text-gray-600">
+            <th className="px-4 py-4 text-sm font-bold text-gray-800">
               Stock
             </th>
 
-            <th className="px-4 py-3 text-sm font-semibold text-gray-600">
+            <th className="px-4 py-4 text-sm font-bold text-gray-800">
               Actions
             </th>
           </tr>
@@ -42,60 +42,71 @@ export default function ProductTable({
           {products.map((product) => (
             <tr
               key={product.id}
-              className="border-b hover:bg-gray-50"
+              className="border-b border-gray-200 hover:bg-gray-50"
             >
+              {/* PRODUCT */}
               <td className="px-4 py-4">
-                <Link
-                  href={`/products/${product.id}`}
-                  className="flex items-center gap-3 group"
-                >
+                <div className="flex items-center gap-3 min-w-[250px]">
                   <img
                     src={product.thumbnail}
                     alt={product.title}
-                    className="w-14 h-14 object-cover rounded-lg"
+                    className="w-14 h-14 object-cover rounded-lg border border-gray-200"
                   />
 
-                  <span className="font-medium text-gray-800 group-hover:text-blue-600">
+                  <span className="font-semibold text-gray-900">
                     {product.title}
                   </span>
-                </Link>
+                </div>
               </td>
 
-              <td className="px-4 py-4 text-gray-600 capitalize">
-                {product.category}
-              </td>
-
-              <td className="px-4 py-4 font-medium">
-                ${product.price}
-              </td>
-
+              {/* CATEGORY */}
               <td className="px-4 py-4">
-                ⭐ {product.rating}
+                <span className="text-gray-800 font-medium capitalize">
+                  {product.category}
+                </span>
               </td>
 
-              <td className="px-4 py-4 text-gray-600">
-                {product.stock}
-              </td>
-
+              {/* PRICE */}
               <td className="px-4 py-4">
-                <div className="flex gap-2">
+                <span className="font-bold text-gray-900">
+                  ${product.price}
+                </span>
+              </td>
+
+              {/* RATING */}
+              <td className="px-4 py-4">
+                <span className="font-medium text-gray-800">
+                  ⭐ {product.rating}
+                </span>
+              </td>
+
+              {/* STOCK */}
+              <td className="px-4 py-4">
+                <span className="font-medium text-gray-800">
+                  {product.stock}
+                </span>
+              </td>
+
+              {/* ACTIONS */}
+              <td className="px-4 py-4">
+                <div className="flex items-center gap-2">
                   <Link
                     href={`/products/${product.id}`}
-                    className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium px-4 py-2 rounded-lg transition"
                   >
                     View
                   </Link>
 
                   <button
                     onClick={() => onEdit(product)}
-                    className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+                    className="bg-blue-100 hover:bg-blue-200 text-blue-800 font-medium px-4 py-2 rounded-lg transition"
                   >
                     Edit
                   </button>
 
                   <button
                     onClick={() => onDelete(product)}
-                    className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+                    className="bg-red-100 hover:bg-red-200 text-red-800 font-medium px-4 py-2 rounded-lg transition"
                   >
                     Delete
                   </button>
