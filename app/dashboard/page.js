@@ -9,16 +9,23 @@ import ProductTable from "../../components/ProductTable";
 import ProductCard from "../../components/ProductCard";
 import Pagination from "../../components/Pagination";
 import SearchBar from "../../components/SearchBar";
+import ProductFilters from "../../components/ProductFilters";
 
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // =========================
+  // ==========================================
   // URL STATE
-  // =========================
+  // ==========================================
 
   const searchQuery = searchParams.get("search") || "";
+
+  const category = searchParams.get("category") || "";
+
+  const sortBy = searchParams.get("sortBy") || "";
+
+  const sortOrder = searchParams.get("sortOrder") || "asc";
 
   const pageParam = Number(searchParams.get("page")) || 1;
 
@@ -32,13 +39,15 @@ export default function DashboardPage() {
     ? limitParam
     : 10;
 
-  // =========================
+  // ==========================================
   // STATE
-  // =========================
+  // ==========================================
 
   const [searchInput, setSearchInput] = useState(searchQuery);
 
   const [products, setProducts] = useState([]);
+
+  const [categories, setCategories] = useState([]);
 
   const [total, setTotal] = useState(0);
 
@@ -46,9 +55,9 @@ export default function DashboardPage() {
 
   const [error, setError] = useState("");
 
-  // =========================
+  // ==========================================
   // PROTECT DASHBOARD
-  // =========================
+  // ==========================================
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -58,22 +67,23 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // =========================
-  // KEEP INPUT IN SYNC
-  // WITH URL
-  // =========================
+  // ==========================================
+  // KEEP SEARCH INPUT IN SYNC WITH URL
+  // ==========================================
 
   useEffect(() => {
     setSearchInput(searchQuery);
   }, [searchQuery]);
 
-  // =========================
-  // DEBOUNCE SEARCH
-  // =========================
+  // ==========================================
+  // DEBOUNCED SEARCH
+  // ==========================================
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(
+        searchParams.toString()
+      );
 
       const trimmedSearch = searchInput.trim();
 
@@ -83,8 +93,7 @@ export default function DashboardPage() {
         params.delete("search");
       }
 
-      // Whenever search changes,
-      // go back to page 1.
+      // Search should always start from page 1
       params.set("page", "1");
 
       const newUrl = `/dashboard?${params.toString()}`;
@@ -99,9 +108,30 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, [searchInput, router, searchParams]);
 
-  // =========================
+  // ==========================================
+  // FETCH CATEGORIES
+  // ==========================================
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await api.get("/products/categories");
+
+        setCategories(response.data);
+      } catch (error) {
+        console.error(
+          "Failed to load categories:",
+          error
+        );
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // ==========================================
   // FETCH PRODUCTS
-  // =========================
+  // ==========================================
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,23 +145,55 @@ export default function DashboardPage() {
 
         let url;
 
-        // Search API
+        // ======================================
+        // SEARCH
+        // ======================================
+
         if (searchQuery) {
           url =
-            `/products/search?q=${encodeURIComponent(searchQuery)}` +
+            `/products/search?q=${encodeURIComponent(
+              searchQuery
+            )}` +
             `&limit=${limit}&skip=${skip}`;
         }
 
-        // Normal products API
+        // ======================================
+        // CATEGORY
+        // ======================================
+
+        else if (category) {
+          url =
+            `/products/category/${encodeURIComponent(
+              category
+            )}` +
+            `?limit=${limit}&skip=${skip}`;
+        }
+
+        // ======================================
+        // ALL PRODUCTS
+        // ======================================
+
         else {
           url = `/products?limit=${limit}&skip=${skip}`;
+        }
+
+        // ======================================
+        // SORTING
+        // ======================================
+
+        if (sortBy) {
+          const separator = url.includes("?")
+            ? "&"
+            : "?";
+
+          url += `${separator}sortBy=${sortBy}&order=${sortOrder}`;
         }
 
         const response = await api.get(url, {
           signal: controller.signal,
         });
 
-        // Don't update state if request was cancelled
+        // Ignore cancelled requests
         if (controller.signal.aborted) {
           return;
         }
@@ -162,44 +224,113 @@ export default function DashboardPage() {
 
     fetchProducts();
 
-    // Cancel previous request
-    // when search/page changes.
+    // Cancel old request when
+    // URL state changes
     return () => {
       controller.abort();
     };
-  }, [searchQuery, page, limit]);
+  }, [
+    searchQuery,
+    category,
+    sortBy,
+    sortOrder,
+    page,
+    limit,
+  ]);
 
-  // =========================
+  // ==========================================
+  // CATEGORY CHANGE
+  // ==========================================
+
+  const handleCategoryChange = (newCategory) => {
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
+
+    if (newCategory) {
+      params.set("category", newCategory);
+    } else {
+      params.delete("category");
+    }
+
+    // Start from page 1
+    params.set("page", "1");
+
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
+  // ==========================================
+  // SORT BY CHANGE
+  // ==========================================
+
+  const handleSortByChange = (newSortBy) => {
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
+
+    if (newSortBy) {
+      params.set("sortBy", newSortBy);
+    } else {
+      params.delete("sortBy");
+    }
+
+    // Start from page 1
+    params.set("page", "1");
+
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
+  // ==========================================
+  // SORT ORDER CHANGE
+  // ==========================================
+
+  const handleSortOrderChange = (newSortOrder) => {
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
+
+    params.set("sortOrder", newSortOrder);
+
+    // Start from page 1
+    params.set("page", "1");
+
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
+  // ==========================================
   // PAGE CHANGE
-  // =========================
+  // ==========================================
 
   const handlePageChange = (newPage) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
 
     params.set("page", String(newPage));
 
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // =========================
+  // ==========================================
   // LIMIT CHANGE
-  // =========================
+  // ==========================================
 
   const handleLimitChange = (newLimit) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
 
     params.set("limit", String(newLimit));
 
-    // When page size changes,
-    // start from page 1.
+    // Start from page 1
     params.set("page", "1");
 
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // =========================
+  // ==========================================
   // LOGOUT
-  // =========================
+  // ==========================================
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -209,9 +340,9 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
-  // =========================
-  // LOADING
-  // =========================
+  // ==========================================
+  // LOADING STATE
+  // ==========================================
 
   if (loading) {
     return (
@@ -229,7 +360,7 @@ export default function DashboardPage() {
           </button>
         </nav>
 
-        <section className="p-6">
+        <section className="p-4 md:p-6">
           <div className="bg-white rounded-xl shadow p-8 text-center">
             <p className="text-gray-600">
               Loading products...
@@ -240,9 +371,9 @@ export default function DashboardPage() {
     );
   }
 
-  // =========================
-  // ERROR
-  // =========================
+  // ==========================================
+  // ERROR STATE
+  // ==========================================
 
   if (error) {
     return (
@@ -260,7 +391,7 @@ export default function DashboardPage() {
           </button>
         </nav>
 
-        <section className="p-6">
+        <section className="p-4 md:p-6">
           <div className="bg-white rounded-xl shadow p-8 text-center">
             <p className="text-red-600 mb-4">
               {error}
@@ -278,12 +409,13 @@ export default function DashboardPage() {
     );
   }
 
-  // =========================
-  // MAIN DASHBOARD
-  // =========================
+  // ==========================================
+  // DASHBOARD
+  // ==========================================
 
   return (
     <main className="min-h-screen bg-gray-100">
+
       {/* NAVBAR */}
 
       <nav className="bg-white shadow px-6 py-4 flex items-center justify-between">
@@ -307,28 +439,46 @@ export default function DashboardPage() {
           {/* HEADER */}
 
           <div className="p-4 md:p-6 border-b">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Products
-                </h2>
+            <div className="flex flex-col gap-4">
 
-                <p className="text-gray-500 mt-1">
-                  Manage your products
-                </p>
+              {/* TITLE + SEARCH */}
+
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Products
+                  </h2>
+
+                  <p className="text-gray-500 mt-1">
+                    Manage your products
+                  </p>
+                </div>
+
+                <SearchBar
+                  value={searchInput}
+                  onChange={setSearchInput}
+                />
+
               </div>
 
-              {/* SEARCH */}
+              {/* FILTERS */}
 
-              <SearchBar
-                value={searchInput}
-                onChange={setSearchInput}
+              <ProductFilters
+                category={category}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onCategoryChange={handleCategoryChange}
+                onSortByChange={handleSortByChange}
+                onSortOrderChange={handleSortOrderChange}
+                categories={categories}
               />
+
             </div>
           </div>
 
-          {/* SEARCH RESULT MESSAGE */}
+          {/* SEARCH MESSAGE */}
 
           {searchQuery && (
             <div className="px-4 md:px-6 py-3 bg-gray-50 border-b">
