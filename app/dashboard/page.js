@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import {
   createProduct,
@@ -22,7 +31,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // --------------------------------------------------
   // URL STATE
+  // --------------------------------------------------
+
   const searchQuery = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
   const sortBy = searchParams.get("sortBy") || "";
@@ -42,27 +54,37 @@ export default function DashboardPage() {
     ? rawLimit
     : 10;
 
+  // --------------------------------------------------
   // STATE
-  const [searchInput, setSearchInput] =
-    useState(searchQuery);
+  // --------------------------------------------------
+
+  const [searchInput, setSearchInput] = useState(
+    searchQuery
+  );
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-
   const [total, setTotal] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // CRUD STATE
   const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] =
-    useState(null);
-  const [formLoading, setFormLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] =
-    useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
 
+  const [formLoading, setFormLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // --------------------------------------------------
+  // PREVENT STALE REQUESTS
+  // --------------------------------------------------
+
+  const latestRequestId = useRef(0);
+
+  // --------------------------------------------------
   // PROTECT DASHBOARD
+  // --------------------------------------------------
+
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -71,41 +93,68 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // KEEP SEARCH INPUT IN SYNC
+  // --------------------------------------------------
+  // KEEP SEARCH INPUT IN SYNC WITH URL
+  // --------------------------------------------------
+
   useEffect(() => {
     setSearchInput(searchQuery);
   }, [searchQuery]);
 
+  // --------------------------------------------------
   // DEBOUNCED SEARCH
+  //
+  // IMPORTANT:
+  // This effect depends ONLY on searchInput.
+  // It must NOT depend on searchParams.
+  //
+  // Otherwise clicking Next would reset page to 1.
+  // --------------------------------------------------
+
   useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams(
-        searchParams.toString()
+        window.location.search
       );
 
       const trimmedSearch = searchInput.trim();
 
       if (trimmedSearch) {
         params.set("search", trimmedSearch);
+
+        // Search and category are handled separately.
+        params.delete("category");
       } else {
         params.delete("search");
       }
 
+      // Search changes always start from page 1.
       params.set("page", "1");
 
-      const newUrl = `/dashboard?${params.toString()}`;
+      const queryString = params.toString();
+
+      const newUrl = queryString
+        ? `/dashboard?${queryString}`
+        : "/dashboard";
+
       const currentUrl =
-        `/dashboard?${searchParams.toString()}`;
+        window.location.pathname +
+        window.location.search;
 
       if (newUrl !== currentUrl) {
         router.push(newUrl);
       }
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [searchInput, router, searchParams]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchInput, router]);
 
+  // --------------------------------------------------
   // FETCH CATEGORIES
+  // --------------------------------------------------
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -123,9 +172,12 @@ export default function DashboardPage() {
     fetchCategories();
   }, []);
 
+  // --------------------------------------------------
   // FETCH PRODUCTS
+  // --------------------------------------------------
+
   const fetchProducts = useCallback(
-    async (signal) => {
+    async (signal, requestId) => {
       try {
         setLoading(true);
         setError("");
@@ -140,7 +192,15 @@ export default function DashboardPage() {
           signal,
         });
 
-        if (signal?.aborted) {
+        // Ignore cancelled requests.
+        if (signal.aborted) {
+          return;
+        }
+
+        // Ignore old/stale responses.
+        if (
+          requestId !== latestRequestId.current
+        ) {
           return;
         }
 
@@ -154,6 +214,12 @@ export default function DashboardPage() {
           return;
         }
 
+        if (
+          requestId !== latestRequestId.current
+        ) {
+          return;
+        }
+
         console.error(error);
 
         setProducts([]);
@@ -163,7 +229,10 @@ export default function DashboardPage() {
           "Failed to load products. Please check your connection and try again."
         );
       } finally {
-        if (!signal?.aborted) {
+        if (
+          !signal.aborted &&
+          requestId === latestRequestId.current
+        ) {
           setLoading(false);
         }
       }
@@ -181,68 +250,124 @@ export default function DashboardPage() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchProducts(controller.signal);
+    const requestId =
+      latestRequestId.current + 1;
+
+    latestRequestId.current = requestId;
+
+    fetchProducts(
+      controller.signal,
+      requestId
+    );
 
     return () => {
       controller.abort();
     };
   }, [fetchProducts]);
 
-  // CLEAR SEARCH / FILTERS
+  // --------------------------------------------------
+  // CLEAR SEARCH AND FILTERS
+  // --------------------------------------------------
+
   const handleClearFilters = () => {
     setSearchInput("");
 
     router.push("/dashboard?page=1");
   };
 
+  // --------------------------------------------------
   // CATEGORY CHANGE
-  const handleCategoryChange = (newCategory) => {
+  // --------------------------------------------------
+
+  const handleCategoryChange = (
+    newCategory
+  ) => {
+    setSearchInput("");
+
     const params = new URLSearchParams(
       searchParams.toString()
     );
 
+    params.delete("search");
+
     if (newCategory) {
-      params.set("category", newCategory);
+      params.set(
+        "category",
+        newCategory
+      );
     } else {
       params.delete("category");
     }
 
     params.set("page", "1");
 
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(
+      `/dashboard?${params.toString()}`
+    );
   };
 
+  // --------------------------------------------------
   // SORT BY CHANGE
-  const handleSortByChange = (newSortBy) => {
+  // --------------------------------------------------
+
+  const handleSortByChange = (
+    newSortBy
+  ) => {
     const params = new URLSearchParams(
       searchParams.toString()
     );
 
     if (newSortBy) {
-      params.set("sortBy", newSortBy);
+      params.set(
+        "sortBy",
+        newSortBy
+      );
     } else {
       params.delete("sortBy");
+      params.delete("sortOrder");
     }
 
     params.set("page", "1");
 
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(
+      `/dashboard?${params.toString()}`
+    );
   };
 
+  // --------------------------------------------------
   // SORT ORDER CHANGE
-  const handleSortOrderChange = (newSortOrder) => {
+  // --------------------------------------------------
+
+  const handleSortOrderChange = (
+    newSortOrder
+  ) => {
+    if (!sortBy) {
+      return;
+    }
+
     const params = new URLSearchParams(
       searchParams.toString()
     );
 
-    params.set("sortOrder", newSortOrder);
+    params.set(
+      "sortOrder",
+      newSortOrder
+    );
+
     params.set("page", "1");
 
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(
+      `/dashboard?${params.toString()}`
+    );
   };
 
+  // --------------------------------------------------
   // PAGE CHANGE
-  const handlePageChange = (newPage) => {
+  // --------------------------------------------------
+
+  const handlePageChange = (
+    newPage
+  ) => {
     if (newPage < 1) {
       return;
     }
@@ -251,14 +376,26 @@ export default function DashboardPage() {
       searchParams.toString()
     );
 
-    params.set("page", String(newPage));
+    params.set(
+      "page",
+      String(newPage)
+    );
 
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(
+      `/dashboard?${params.toString()}`
+    );
   };
 
+  // --------------------------------------------------
   // LIMIT CHANGE
-  const handleLimitChange = (newLimit) => {
-    if (!allowedLimits.includes(newLimit)) {
+  // --------------------------------------------------
+
+  const handleLimitChange = (
+    newLimit
+  ) => {
+    if (
+      !allowedLimits.includes(newLimit)
+    ) {
       return;
     }
 
@@ -266,15 +403,27 @@ export default function DashboardPage() {
       searchParams.toString()
     );
 
-    params.set("limit", String(newLimit));
+    params.set(
+      "limit",
+      String(newLimit)
+    );
+
     params.set("page", "1");
 
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(
+      `/dashboard?${params.toString()}`
+    );
   };
 
-  // OPEN ADD FORM
+  // --------------------------------------------------
+  // ADD PRODUCT
+  // --------------------------------------------------
+
   const handleAddProduct = () => {
-    if (formLoading) {
+    if (
+      formLoading ||
+      deleteLoading
+    ) {
       return;
     }
 
@@ -282,9 +431,17 @@ export default function DashboardPage() {
     setShowForm(true);
   };
 
-  // OPEN EDIT FORM
-  const handleEditProduct = (product) => {
-    if (formLoading || deleteLoading) {
+  // --------------------------------------------------
+  // EDIT PRODUCT
+  // --------------------------------------------------
+
+  const handleEditProduct = (
+    product
+  ) => {
+    if (
+      formLoading ||
+      deleteLoading
+    ) {
       return;
     }
 
@@ -292,7 +449,10 @@ export default function DashboardPage() {
     setShowForm(true);
   };
 
+  // --------------------------------------------------
   // CLOSE FORM
+  // --------------------------------------------------
+
   const handleCloseForm = () => {
     if (formLoading) {
       return;
@@ -302,122 +462,159 @@ export default function DashboardPage() {
     setEditingProduct(null);
   };
 
+  // --------------------------------------------------
   // ADD / EDIT PRODUCT
-  const handleSubmitProduct = async (productData) => {
-    if (formLoading) {
-      return;
-    }
+  // --------------------------------------------------
 
-    try {
-      setFormLoading(true);
-
-      if (editingProduct) {
-        const data = await updateProduct(
-          editingProduct.id,
-          productData
-        );
-
-        const updatedProduct = {
-          ...editingProduct,
-          ...data,
-        };
-
-        setProducts((currentProducts) =>
-          currentProducts.map((product) =>
-            product.id === editingProduct.id
-              ? updatedProduct
-              : product
-          )
-        );
-      } else {
-        const data = await createProduct(productData);
-
-        const newProduct = {
-          ...data,
-          thumbnail:
-            data.thumbnail ||
-            "https://dummyjson.com/image/100x100",
-        };
-
-        setProducts((currentProducts) => [
-          newProduct,
-          ...currentProducts,
-        ]);
-
-        setTotal((currentTotal) => currentTotal + 1);
+  const handleSubmitProduct =
+    async (productData) => {
+      if (formLoading) {
+        return;
       }
 
-      setShowForm(false);
-      setEditingProduct(null);
-    } catch (error) {
-      console.error(error);
+      try {
+        setFormLoading(true);
 
-      alert(
-        "Unable to save the product. Please try again."
-      );
-    } finally {
-      setFormLoading(false);
-    }
-  };
+        if (editingProduct) {
+          const data =
+            await updateProduct(
+              editingProduct.id,
+              productData
+            );
 
+          const updatedProduct = {
+            ...editingProduct,
+            ...data,
+          };
+
+          setProducts(
+            (currentProducts) =>
+              currentProducts.map(
+                (product) =>
+                  product.id ===
+                  editingProduct.id
+                    ? updatedProduct
+                    : product
+              )
+          );
+        } else {
+          const data =
+            await createProduct(
+              productData
+            );
+
+          const newProduct = {
+            ...data,
+            thumbnail:
+              data.thumbnail ||
+              "https://dummyjson.com/image/100x100",
+          };
+
+          setProducts(
+            (currentProducts) => [
+              newProduct,
+              ...currentProducts,
+            ]
+          );
+
+          setTotal(
+            (currentTotal) =>
+              currentTotal + 1
+          );
+        }
+
+        setShowForm(false);
+        setEditingProduct(null);
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Unable to save the product. Please try again."
+        );
+      } finally {
+        setFormLoading(false);
+      }
+    };
+
+  // --------------------------------------------------
   // DELETE PRODUCT
-  const handleDeleteProduct = async (product) => {
-    if (deleteLoading) {
-      return;
-    }
+  // --------------------------------------------------
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${product.title}"?`
-    );
+  const handleDeleteProduct =
+    async (product) => {
+      if (deleteLoading) {
+        return;
+      }
 
-    if (!confirmed) {
-      return;
-    }
+      const confirmed =
+        window.confirm(
+          `Are you sure you want to delete "${product.title}"?`
+        );
 
-    try {
-      setDeleteLoading(true);
+      if (!confirmed) {
+        return;
+      }
 
-      await deleteProduct(product.id);
+      try {
+        setDeleteLoading(true);
 
-      setProducts((currentProducts) =>
-        currentProducts.filter(
-          (item) => item.id !== product.id
-        )
-      );
+        await deleteProduct(
+          product.id
+        );
 
-      setTotal((currentTotal) =>
-        Math.max(currentTotal - 1, 0)
-      );
-    } catch (error) {
-      console.error(error);
+        setProducts(
+          (currentProducts) =>
+            currentProducts.filter(
+              (item) =>
+                item.id !== product.id
+            )
+        );
 
-      alert(
-        "Unable to delete the product. Please try again."
-      );
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
+        setTotal(
+          (currentTotal) =>
+            Math.max(
+              currentTotal - 1,
+              0
+            )
+        );
+      } catch (error) {
+        console.error(error);
 
+        alert(
+          "Unable to delete the product. Please try again."
+        );
+      } finally {
+        setDeleteLoading(false);
+      }
+    };
+
+  // --------------------------------------------------
   // LOGOUT
+  // --------------------------------------------------
+
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
+    localStorage.removeItem(
+      "refreshToken"
+    );
 
     router.replace("/login");
   };
 
+  // --------------------------------------------------
   // NAVBAR
+  // --------------------------------------------------
+
   const renderNavbar = () => {
     return (
       <nav className="bg-white shadow px-4 md:px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-800">
+        <h1 className="text-xl font-bold text-gray-900">
           Product Admin
         </h1>
 
         <button
           onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
+          className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition"
         >
           Logout
         </button>
@@ -425,8 +622,12 @@ export default function DashboardPage() {
     );
   };
 
+  // --------------------------------------------------
   // INVALID PAGE
-  const totalPages = Math.ceil(total / limit);
+  // --------------------------------------------------
+
+  const totalPages =
+    Math.ceil(total / limit);
 
   if (
     !loading &&
@@ -443,37 +644,30 @@ export default function DashboardPage() {
               📄
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">
               Page Not Found
             </h2>
 
-            <p className="text-gray-500 mb-6">
-              Page {page} does not exist for the current
-              product results.
+            <p className="text-gray-700 mb-6">
+              Page {page} does not exist
+              for the current product
+              results.
             </p>
 
             <button
-              onClick={() =>
+              onClick={() => {
+                const params =
+                  new URLSearchParams(
+                    searchParams.toString()
+                  );
+
+                params.set("page", "1");
+
                 router.push(
-                  `/dashboard?${new URLSearchParams({
-                    ...(searchQuery && {
-                      search: searchQuery,
-                    }),
-                    ...(category && {
-                      category,
-                    }),
-                    ...(sortBy && {
-                      sortBy,
-                    }),
-                    ...(sortBy && {
-                      sortOrder,
-                    }),
-                    limit: String(limit),
-                    page: "1",
-                  }).toString()}`
-                )
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
+                  `/dashboard?${params.toString()}`
+                );
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg"
             >
               Go to Page 1
             </button>
@@ -483,7 +677,10 @@ export default function DashboardPage() {
     );
   }
 
-  // LOADING STATE
+  // --------------------------------------------------
+  // LOADING
+  // --------------------------------------------------
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-100">
@@ -512,7 +709,10 @@ export default function DashboardPage() {
     );
   }
 
-  // ERROR STATE
+  // --------------------------------------------------
+  // ERROR
+  // --------------------------------------------------
+
   if (error) {
     return (
       <main className="min-h-screen bg-gray-100">
@@ -524,17 +724,19 @@ export default function DashboardPage() {
               ⚠️
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">
               Unable to Load Products
             </h2>
 
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-700 mb-6">
               {error}
             </p>
 
             <button
-              onClick={() => window.location.reload()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
+              onClick={() =>
+                window.location.reload()
+              }
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg"
             >
               Retry
             </button>
@@ -544,28 +746,35 @@ export default function DashboardPage() {
     );
   }
 
+  // --------------------------------------------------
   // DASHBOARD
+  // --------------------------------------------------
+
   return (
     <main className="min-h-screen bg-gray-100">
       {renderNavbar()}
 
       <section className="p-4 md:p-6">
         <div className="bg-white rounded-xl shadow overflow-hidden">
+
           {/* HEADER */}
-          <div className="p-4 md:p-6 border-b">
+          <div className="p-4 md:p-6 border-b border-gray-200">
             <div className="flex flex-col gap-4">
+
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800">
+                  <h2 className="text-2xl font-bold text-gray-900">
                     Products
                   </h2>
 
-                  <p className="text-gray-500 mt-1">
+                  <p className="text-gray-700 mt-1">
                     Manage your products
                   </p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
+
                   <SearchBar
                     value={searchInput}
                     onChange={setSearchInput}
@@ -573,11 +782,15 @@ export default function DashboardPage() {
 
                   <button
                     onClick={handleAddProduct}
-                    disabled={formLoading}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-3 rounded-lg font-medium whitespace-nowrap transition"
+                    disabled={
+                      formLoading ||
+                      deleteLoading
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold px-5 py-3 rounded-lg whitespace-nowrap transition"
                   >
                     + Add Product
                   </button>
+
                 </div>
               </div>
 
@@ -586,56 +799,87 @@ export default function DashboardPage() {
                 category={category}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
-                onCategoryChange={handleCategoryChange}
-                onSortByChange={handleSortByChange}
-                onSortOrderChange={handleSortOrderChange}
+                onCategoryChange={
+                  handleCategoryChange
+                }
+                onSortByChange={
+                  handleSortByChange
+                }
+                onSortOrderChange={
+                  handleSortOrderChange
+                }
                 categories={categories}
               />
+
             </div>
           </div>
 
-          {/* ACTIVE SEARCH */}
+          {/* SEARCH MESSAGE */}
           {searchQuery && (
-            <div className="px-4 md:px-6 py-3 bg-gray-50 border-b">
-              <p className="text-sm text-gray-600">
-                Search results for{" "}
-                <span className="font-semibold text-gray-800">
+            <div className="px-4 md:px-6 py-3 bg-blue-50 border-b border-blue-100">
+              <p className="text-sm text-gray-800">
+                Searching for{" "}
+                <span className="font-bold text-gray-900">
                   "{searchQuery}"
                 </span>
               </p>
             </div>
           )}
 
-          {/* EMPTY STATE */}
+          {/* CATEGORY MESSAGE */}
+          {category && !searchQuery && (
+            <div className="px-4 md:px-6 py-3 bg-gray-50 border-b border-gray-200">
+              <p className="text-sm text-gray-800">
+                Showing products in{" "}
+                <span className="font-bold text-gray-900 capitalize">
+                  {category}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* EMPTY */}
           {products.length === 0 ? (
             <div className="p-10 md:p-16 text-center">
+
               <div className="text-6xl mb-5">
                 📦
               </div>
 
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
                 No Products Found
               </h3>
 
-              <p className="text-gray-500 max-w-md mx-auto">
-                We couldn't find any products matching your
-                current search or filters.
+              <p className="text-gray-700 max-w-md mx-auto">
+                We couldn't find any products
+                matching your current search
+                or filters.
               </p>
 
               <div className="flex flex-col sm:flex-row justify-center gap-3 mt-6">
+
                 <button
-                  onClick={handleClearFilters}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg"
+                  onClick={
+                    handleClearFilters
+                  }
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg"
                 >
                   Clear Search & Filters
                 </button>
 
                 <button
-                  onClick={handleAddProduct}
-                  className="border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-3 rounded-lg"
+                  onClick={
+                    handleAddProduct
+                  }
+                  disabled={
+                    formLoading ||
+                    deleteLoading
+                  }
+                  className="border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-900 font-semibold px-5 py-3 rounded-lg"
                 >
                   + Add Product
                 </button>
+
               </div>
             </div>
           ) : (
@@ -644,21 +888,31 @@ export default function DashboardPage() {
               <div className="hidden md:block">
                 <ProductTable
                   products={products}
-                  onEdit={handleEditProduct}
-                  onDelete={handleDeleteProduct}
+                  onEdit={
+                    handleEditProduct
+                  }
+                  onDelete={
+                    handleDeleteProduct
+                  }
                 />
               </div>
 
               {/* MOBILE CARDS */}
               <div className="block md:hidden">
-                {products.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onEdit={handleEditProduct}
-                    onDelete={handleDeleteProduct}
-                  />
-                ))}
+                {products.map(
+                  (product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onEdit={
+                        handleEditProduct
+                      }
+                      onDelete={
+                        handleDeleteProduct
+                      }
+                    />
+                  )
+                )}
               </div>
 
               {/* PAGINATION */}
@@ -666,8 +920,12 @@ export default function DashboardPage() {
                 page={page}
                 limit={limit}
                 total={total}
-                onPageChange={handlePageChange}
-                onLimitChange={handleLimitChange}
+                onPageChange={
+                  handlePageChange
+                }
+                onLimitChange={
+                  handleLimitChange
+                }
               />
             </>
           )}
@@ -678,8 +936,12 @@ export default function DashboardPage() {
       {showForm && (
         <ProductForm
           product={editingProduct}
-          onSubmit={handleSubmitProduct}
-          onClose={handleCloseForm}
+          onSubmit={
+            handleSubmitProduct
+          }
+          onClose={
+            handleCloseForm
+          }
           loading={formLoading}
         />
       )}
