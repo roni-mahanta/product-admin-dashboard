@@ -1,6 +1,10 @@
 "use client";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({
+  product,
+  onEdit,
+  onDelete,
+}) {
   return (
     <div className="border-b p-4 last:border-b-0">
       <div className="flex gap-4">
@@ -11,7 +15,7 @@ export default function ProductCard({ product }) {
         />
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-800 truncate">
+          <h3 className="font-semibold text-gray-800">
             {product.title}
           </h3>
 
@@ -31,6 +35,22 @@ export default function ProductCard({ product }) {
             <span className="text-gray-500">
               Stock: {product.stock}
             </span>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => onEdit(product)}
+              className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+            >
+              Edit
+            </button>
+
+            <button
+              onClick={() => onDelete(product)}
+              className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+            >
+              Delete
+            </button>
           </div>
         </div>
       </div>

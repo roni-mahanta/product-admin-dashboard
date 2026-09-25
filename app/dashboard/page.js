@@ -10,25 +10,19 @@ import ProductCard from "../../components/ProductCard";
 import Pagination from "../../components/Pagination";
 import SearchBar from "../../components/SearchBar";
 import ProductFilters from "../../components/ProductFilters";
+import ProductForm from "../../components/ProductForm";
 
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ==========================================
   // URL STATE
-  // ==========================================
-
   const searchQuery = searchParams.get("search") || "";
-
   const category = searchParams.get("category") || "";
-
   const sortBy = searchParams.get("sortBy") || "";
-
   const sortOrder = searchParams.get("sortOrder") || "asc";
 
   const pageParam = Number(searchParams.get("page")) || 1;
-
   const limitParam = Number(searchParams.get("limit")) || 10;
 
   const allowedLimits = [10, 20, 50];
@@ -39,26 +33,23 @@ export default function DashboardPage() {
     ? limitParam
     : 10;
 
-  // ==========================================
   // STATE
-  // ==========================================
-
   const [searchInput, setSearchInput] = useState(searchQuery);
 
   const [products, setProducts] = useState([]);
-
   const [categories, setCategories] = useState([]);
 
   const [total, setTotal] = useState(0);
 
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
 
-  // ==========================================
-  // PROTECT DASHBOARD
-  // ==========================================
+  // CRUD STATE
+  const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [formLoading, setFormLoading] = useState(false);
 
+  // PROTECT DASHBOARD
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -67,18 +58,12 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // ==========================================
-  // KEEP SEARCH INPUT IN SYNC WITH URL
-  // ==========================================
-
+  // KEEP SEARCH INPUT IN SYNC
   useEffect(() => {
     setSearchInput(searchQuery);
   }, [searchQuery]);
 
-  // ==========================================
   // DEBOUNCED SEARCH
-  // ==========================================
-
   useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams(
@@ -93,12 +78,11 @@ export default function DashboardPage() {
         params.delete("search");
       }
 
-      // Search should always start from page 1
       params.set("page", "1");
 
       const newUrl = `/dashboard?${params.toString()}`;
-
-      const currentUrl = `/dashboard?${searchParams.toString()}`;
+      const currentUrl =
+        `/dashboard?${searchParams.toString()}`;
 
       if (newUrl !== currentUrl) {
         router.push(newUrl);
@@ -108,10 +92,7 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, [searchInput, router, searchParams]);
 
-  // ==========================================
   // FETCH CATEGORIES
-  // ==========================================
-
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -129,10 +110,7 @@ export default function DashboardPage() {
     fetchCategories();
   }, []);
 
-  // ==========================================
   // FETCH PRODUCTS
-  // ==========================================
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -145,64 +123,43 @@ export default function DashboardPage() {
 
         let url;
 
-        // ======================================
-        // SEARCH
-        // ======================================
-
         if (searchQuery) {
           url =
             `/products/search?q=${encodeURIComponent(
               searchQuery
             )}` +
             `&limit=${limit}&skip=${skip}`;
-        }
-
-        // ======================================
-        // CATEGORY
-        // ======================================
-
-        else if (category) {
+        } else if (category) {
           url =
             `/products/category/${encodeURIComponent(
               category
             )}` +
             `?limit=${limit}&skip=${skip}`;
-        }
-
-        // ======================================
-        // ALL PRODUCTS
-        // ======================================
-
-        else {
+        } else {
           url = `/products?limit=${limit}&skip=${skip}`;
         }
-
-        // ======================================
-        // SORTING
-        // ======================================
 
         if (sortBy) {
           const separator = url.includes("?")
             ? "&"
             : "?";
 
-          url += `${separator}sortBy=${sortBy}&order=${sortOrder}`;
+          url +=
+            `${separator}sortBy=${sortBy}` +
+            `&order=${sortOrder}`;
         }
 
         const response = await api.get(url, {
           signal: controller.signal,
         });
 
-        // Ignore cancelled requests
         if (controller.signal.aborted) {
           return;
         }
 
         setProducts(response.data.products);
-
         setTotal(response.data.total);
       } catch (error) {
-        // Ignore cancelled requests
         if (
           error.name === "CanceledError" ||
           error.code === "ERR_CANCELED"
@@ -224,8 +181,6 @@ export default function DashboardPage() {
 
     fetchProducts();
 
-    // Cancel old request when
-    // URL state changes
     return () => {
       controller.abort();
     };
@@ -238,10 +193,7 @@ export default function DashboardPage() {
     limit,
   ]);
 
-  // ==========================================
   // CATEGORY CHANGE
-  // ==========================================
-
   const handleCategoryChange = (newCategory) => {
     const params = new URLSearchParams(
       searchParams.toString()
@@ -253,16 +205,12 @@ export default function DashboardPage() {
       params.delete("category");
     }
 
-    // Start from page 1
     params.set("page", "1");
 
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // ==========================================
   // SORT BY CHANGE
-  // ==========================================
-
   const handleSortByChange = (newSortBy) => {
     const params = new URLSearchParams(
       searchParams.toString()
@@ -274,33 +222,24 @@ export default function DashboardPage() {
       params.delete("sortBy");
     }
 
-    // Start from page 1
     params.set("page", "1");
 
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // ==========================================
   // SORT ORDER CHANGE
-  // ==========================================
-
   const handleSortOrderChange = (newSortOrder) => {
     const params = new URLSearchParams(
       searchParams.toString()
     );
 
     params.set("sortOrder", newSortOrder);
-
-    // Start from page 1
     params.set("page", "1");
 
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // ==========================================
   // PAGE CHANGE
-  // ==========================================
-
   const handlePageChange = (newPage) => {
     const params = new URLSearchParams(
       searchParams.toString()
@@ -311,39 +250,137 @@ export default function DashboardPage() {
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // ==========================================
   // LIMIT CHANGE
-  // ==========================================
-
   const handleLimitChange = (newLimit) => {
     const params = new URLSearchParams(
       searchParams.toString()
     );
 
     params.set("limit", String(newLimit));
-
-    // Start from page 1
     params.set("page", "1");
 
     router.push(`/dashboard?${params.toString()}`);
   };
 
-  // ==========================================
-  // LOGOUT
-  // ==========================================
+  // OPEN ADD FORM
+  const handleAddProduct = () => {
+    setEditingProduct(null);
+    setShowForm(true);
+  };
 
+  // OPEN EDIT FORM
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setShowForm(true);
+  };
+
+  // CLOSE FORM
+  const handleCloseForm = () => {
+    if (formLoading) {
+      return;
+    }
+
+    setShowForm(false);
+    setEditingProduct(null);
+  };
+
+  // ADD / EDIT PRODUCT
+  const handleSubmitProduct = async (productData) => {
+    try {
+      setFormLoading(true);
+
+      if (editingProduct) {
+        const response = await api.put(
+          `/products/${editingProduct.id}`,
+          productData
+        );
+
+        const updatedProduct = {
+          ...editingProduct,
+          ...response.data,
+        };
+
+        setProducts((currentProducts) =>
+          currentProducts.map((product) =>
+            product.id === editingProduct.id
+              ? updatedProduct
+              : product
+          )
+        );
+      } else {
+        const response = await api.post(
+          "/products/add",
+          productData
+        );
+
+        const newProduct = {
+          ...response.data,
+          thumbnail:
+            response.data.thumbnail ||
+            "https://dummyjson.com/image/100x100",
+        };
+
+        setProducts((currentProducts) => [
+          newProduct,
+          ...currentProducts,
+        ]);
+
+        setTotal((currentTotal) => currentTotal + 1);
+      }
+
+      setShowForm(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Unable to save the product. Please try again."
+      );
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // DELETE PRODUCT
+  const handleDeleteProduct = async (product) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${product.title}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.delete(`/products/${product.id}`);
+
+      setProducts((currentProducts) =>
+        currentProducts.filter(
+          (item) => item.id !== product.id
+        )
+      );
+
+      setTotal((currentTotal) =>
+        Math.max(currentTotal - 1, 0)
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Unable to delete the product. Please try again."
+      );
+    }
+  };
+
+  // LOGOUT
   const handleLogout = () => {
     localStorage.removeItem("token");
-
     localStorage.removeItem("refreshToken");
 
     router.replace("/login");
   };
 
-  // ==========================================
   // LOADING STATE
-  // ==========================================
-
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-100">
@@ -371,10 +408,7 @@ export default function DashboardPage() {
     );
   }
 
-  // ==========================================
   // ERROR STATE
-  // ==========================================
-
   if (error) {
     return (
       <main className="min-h-screen bg-gray-100">
@@ -409,15 +443,9 @@ export default function DashboardPage() {
     );
   }
 
-  // ==========================================
   // DASHBOARD
-  // ==========================================
-
   return (
     <main className="min-h-screen bg-gray-100">
-
-      {/* NAVBAR */}
-
       <nav className="bg-white shadow px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">
           Product Admin
@@ -431,21 +459,11 @@ export default function DashboardPage() {
         </button>
       </nav>
 
-      {/* CONTENT */}
-
       <section className="p-4 md:p-6">
         <div className="bg-white rounded-xl shadow overflow-hidden">
-
-          {/* HEADER */}
-
           <div className="p-4 md:p-6 border-b">
-
             <div className="flex flex-col gap-4">
-
-              {/* TITLE + SEARCH */}
-
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">
                     Products
@@ -456,14 +474,20 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <SearchBar
-                  value={searchInput}
-                  onChange={setSearchInput}
-                />
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <SearchBar
+                    value={searchInput}
+                    onChange={setSearchInput}
+                  />
 
+                  <button
+                    onClick={handleAddProduct}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg font-medium whitespace-nowrap"
+                  >
+                    + Add Product
+                  </button>
+                </div>
               </div>
-
-              {/* FILTERS */}
 
               <ProductFilters
                 category={category}
@@ -474,11 +498,8 @@ export default function DashboardPage() {
                 onSortOrderChange={handleSortOrderChange}
                 categories={categories}
               />
-
             </div>
           </div>
-
-          {/* SEARCH MESSAGE */}
 
           {searchQuery && (
             <div className="px-4 md:px-6 py-3 bg-gray-50 border-b">
@@ -491,34 +512,39 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* EMPTY STATE */}
-
           {products.length === 0 ? (
             <div className="p-10 text-center">
               <p className="text-gray-500">
                 No products found.
               </p>
+
+              <button
+                onClick={handleAddProduct}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg"
+              >
+                Add Product
+              </button>
             </div>
           ) : (
             <>
-              {/* DESKTOP TABLE */}
-
               <div className="hidden md:block">
-                <ProductTable products={products} />
+                <ProductTable
+                  products={products}
+                  onEdit={handleEditProduct}
+                  onDelete={handleDeleteProduct}
+                />
               </div>
-
-              {/* MOBILE CARDS */}
 
               <div className="block md:hidden">
                 {products.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
+                    onEdit={handleEditProduct}
+                    onDelete={handleDeleteProduct}
                   />
                 ))}
               </div>
-
-              {/* PAGINATION */}
 
               <Pagination
                 page={page}
@@ -531,6 +557,15 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+
+      {showForm && (
+        <ProductForm
+          product={editingProduct}
+          onSubmit={handleSubmitProduct}
+          onClose={handleCloseForm}
+          loading={formLoading}
+        />
+      )}
     </main>
   );
 }
