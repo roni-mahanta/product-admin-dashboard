@@ -8,55 +8,82 @@ export default function ProductForm({
   onClose,
   loading,
 }) {
-  const isEditMode = Boolean(product);
+  const isEditing = Boolean(product);
 
-  const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("");
-  const [stock, setStock] = useState("");
-  const [description, setDescription] = useState("");
+  const [formData, setFormData] = useState({
+    title: "",
+    price: "",
+    stock: "",
+    category: "",
+    description: "",
+  });
 
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (product) {
-      setTitle(product.title || "");
-      setPrice(product.price ?? "");
-      setCategory(product.category || "");
-      setStock(product.stock ?? "");
-      setDescription(product.description || "");
+      setFormData({
+        title: product.title || "",
+        price: product.price ?? "",
+        stock: product.stock ?? "",
+        category: product.category || "",
+        description: product.description || "",
+      });
     } else {
-      setTitle("");
-      setPrice("");
-      setCategory("");
-      setStock("");
-      setDescription("");
+      setFormData({
+        title: "",
+        price: "",
+        stock: "",
+        category: "",
+        description: "",
+      });
     }
 
     setErrors({});
   }, [product]);
 
-  const validate = () => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData((currentData) => ({
+      ...currentData,
+      [name]: value,
+    }));
+
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      [name]: "",
+    }));
+  };
+
+  const validateForm = () => {
     const newErrors = {};
 
-    if (!title.trim()) {
-      newErrors.title = "Product title is required";
+    if (!formData.title.trim()) {
+      newErrors.title = "Product title is required.";
     }
 
-    if (price === "" || Number(price) <= 0) {
-      newErrors.price = "Price must be greater than 0";
+    if (
+      formData.price === "" ||
+      Number(formData.price) < 0
+    ) {
+      newErrors.price = "Enter a valid price.";
     }
 
-    if (!category.trim()) {
-      newErrors.category = "Category is required";
+    if (
+      formData.stock === "" ||
+      Number(formData.stock) < 0
+    ) {
+      newErrors.stock = "Enter a valid stock quantity.";
     }
 
-    if (stock === "" || Number(stock) < 0) {
-      newErrors.stock = "Stock cannot be negative";
+    if (!formData.category.trim()) {
+      newErrors.category = "Category is required.";
     }
 
-    if (!description.trim()) {
-      newErrors.description = "Description is required";
+    if (!formData.description.trim()) {
+      newErrors.description =
+        "Product description is required.";
     }
 
     setErrors(newErrors);
@@ -67,153 +94,203 @@ export default function ProductForm({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!validate()) {
+    if (!validateForm()) {
       return;
     }
 
-    const productData = {
-      title: title.trim(),
-      price: Number(price),
-      category: category.trim(),
-      stock: Number(stock),
-      description: description.trim(),
-    };
-
-    onSubmit(productData);
+    onSubmit({
+      title: formData.title.trim(),
+      price: Number(formData.price),
+      stock: Number(formData.stock),
+      category: formData.category.trim(),
+      description: formData.description.trim(),
+    });
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-2xl rounded-xl shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">
-              {isEditMode ? "Edit Product" : "Add Product"}
-            </h2>
+      <div className="w-full max-w-2xl max-h-[95vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
+        {/* HEADER */}
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {isEditing
+                  ? "Edit Product"
+                  : "Add Product"}
+              </h2>
 
-            <p className="text-sm text-gray-500 mt-1">
-              {isEditMode
-                ? "Update the product information"
-                : "Create a new product"}
-            </p>
+              <p className="mt-1 text-base text-gray-700">
+                {isEditing
+                  ? "Update the product information"
+                  : "Enter the product information"}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              aria-label="Close form"
+              className="text-2xl font-bold text-gray-600 hover:text-gray-900 disabled:opacity-50"
+            >
+              ×
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="text-gray-500 hover:text-gray-800 text-2xl"
-          >
-            ×
-          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        {/* FORM */}
+        <form
+          onSubmit={handleSubmit}
+          className="px-6 py-6 space-y-5"
+        >
+          {/* PRODUCT TITLE */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="title"
+              className="block text-sm font-semibold text-gray-900 mb-2"
+            >
               Product Title
             </label>
 
             <input
+              id="title"
+              name="title"
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={formData.title}
+              onChange={handleChange}
               placeholder="Enter product title"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-500 bg-white outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-500"
             />
 
             {errors.title && (
-              <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+              <p className="mt-1 text-sm font-medium text-red-600">
+                {errors.title}
+              </p>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* PRICE + STOCK */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="price"
+                className="block text-sm font-semibold text-gray-900 mb-2"
+              >
                 Price
               </label>
 
               <input
+                id="price"
+                name="price"
                 type="number"
                 min="0"
                 step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Enter price"
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                value={formData.price}
+                onChange={handleChange}
+                placeholder="19.99"
+                disabled={loading}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-500 bg-white outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-500"
               />
 
               {errors.price && (
-                <p className="text-red-500 text-sm mt-1">{errors.price}</p>
+                <p className="mt-1 text-sm font-medium text-red-600">
+                  {errors.price}
+                </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="stock"
+                className="block text-sm font-semibold text-gray-900 mb-2"
+              >
                 Stock
               </label>
 
               <input
+                id="stock"
+                name="stock"
                 type="number"
                 min="0"
-                value={stock}
-                onChange={(e) => setStock(e.target.value)}
-                placeholder="Enter stock"
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                step="1"
+                value={formData.stock}
+                onChange={handleChange}
+                placeholder="34"
+                disabled={loading}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-500 bg-white outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-500"
               />
 
               {errors.stock && (
-                <p className="text-red-500 text-sm mt-1">{errors.stock}</p>
+                <p className="mt-1 text-sm font-medium text-red-600">
+                  {errors.stock}
+                </p>
               )}
             </div>
           </div>
 
+          {/* CATEGORY */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="category"
+              className="block text-sm font-semibold text-gray-900 mb-2"
+            >
               Category
             </label>
 
             <input
+              id="category"
+              name="category"
               type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="Example: laptops"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.category}
+              onChange={handleChange}
+              placeholder="beauty"
+              disabled={loading}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-500 bg-white outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-500"
             />
 
             {errors.category && (
-              <p className="text-red-500 text-sm mt-1">
+              <p className="mt-1 text-sm font-medium text-red-600">
                 {errors.category}
               </p>
             )}
           </div>
 
+          {/* DESCRIPTION */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="description"
+              className="block text-sm font-semibold text-gray-900 mb-2"
+            >
               Description
             </label>
 
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              id="description"
+              name="description"
+              rows={6}
+              value={formData.description}
+              onChange={handleChange}
               placeholder="Enter product description"
-              rows={5}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              disabled={loading}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder:text-gray-500 bg-white outline-none transition resize-y focus:border-blue-600 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-500"
             />
 
             {errors.description && (
-              <p className="text-red-500 text-sm mt-1">
+              <p className="mt-1 text-sm font-medium text-red-600">
                 {errors.description}
               </p>
             )}
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+          {/* ACTIONS */}
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-5 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-3 border border-gray-300 rounded-lg text-gray-900 font-semibold bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               Cancel
             </button>
@@ -221,11 +298,11 @@ export default function ProductForm({
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:bg-blue-400"
+              className="w-full sm:w-auto px-5 py-3 rounded-lg text-white font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition"
             >
               {loading
                 ? "Saving..."
-                : isEditMode
+                : isEditing
                 ? "Update Product"
                 : "Add Product"}
             </button>
