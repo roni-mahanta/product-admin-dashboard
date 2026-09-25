@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -27,14 +28,11 @@ import SearchBar from "../../components/SearchBar";
 import ProductFilters from "../../components/ProductFilters";
 import ProductForm from "../../components/ProductForm";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // --------------------------------------------------
   // URL STATE
-  // --------------------------------------------------
-
   const searchQuery = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
   const sortBy = searchParams.get("sortBy") || "";
@@ -54,10 +52,7 @@ export default function DashboardPage() {
     ? rawLimit
     : 10;
 
-  // --------------------------------------------------
   // STATE
-  // --------------------------------------------------
-
   const [searchInput, setSearchInput] = useState(
     searchQuery
   );
@@ -75,16 +70,10 @@ export default function DashboardPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // --------------------------------------------------
   // PREVENT STALE REQUESTS
-  // --------------------------------------------------
-
   const latestRequestId = useRef(0);
 
-  // --------------------------------------------------
   // PROTECT DASHBOARD
-  // --------------------------------------------------
-
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -93,24 +82,12 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // --------------------------------------------------
   // KEEP SEARCH INPUT IN SYNC WITH URL
-  // --------------------------------------------------
-
   useEffect(() => {
     setSearchInput(searchQuery);
   }, [searchQuery]);
 
-  // --------------------------------------------------
   // DEBOUNCED SEARCH
-  //
-  // IMPORTANT:
-  // This effect depends ONLY on searchInput.
-  // It must NOT depend on searchParams.
-  //
-  // Otherwise clicking Next would reset page to 1.
-  // --------------------------------------------------
-
   useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams(
@@ -121,14 +98,11 @@ export default function DashboardPage() {
 
       if (trimmedSearch) {
         params.set("search", trimmedSearch);
-
-        // Search and category are handled separately.
         params.delete("category");
       } else {
         params.delete("search");
       }
 
-      // Search changes always start from page 1.
       params.set("page", "1");
 
       const queryString = params.toString();
@@ -151,10 +125,7 @@ export default function DashboardPage() {
     };
   }, [searchInput, router]);
 
-  // --------------------------------------------------
   // FETCH CATEGORIES
-  // --------------------------------------------------
-
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -172,10 +143,7 @@ export default function DashboardPage() {
     fetchCategories();
   }, []);
 
-  // --------------------------------------------------
   // FETCH PRODUCTS
-  // --------------------------------------------------
-
   const fetchProducts = useCallback(
     async (signal, requestId) => {
       try {
@@ -192,12 +160,10 @@ export default function DashboardPage() {
           signal,
         });
 
-        // Ignore cancelled requests.
         if (signal.aborted) {
           return;
         }
 
-        // Ignore old/stale responses.
         if (
           requestId !== latestRequestId.current
         ) {
@@ -265,20 +231,14 @@ export default function DashboardPage() {
     };
   }, [fetchProducts]);
 
-  // --------------------------------------------------
   // CLEAR SEARCH AND FILTERS
-  // --------------------------------------------------
-
   const handleClearFilters = () => {
     setSearchInput("");
 
     router.push("/dashboard?page=1");
   };
 
-  // --------------------------------------------------
   // CATEGORY CHANGE
-  // --------------------------------------------------
-
   const handleCategoryChange = (
     newCategory
   ) => {
@@ -306,10 +266,7 @@ export default function DashboardPage() {
     );
   };
 
-  // --------------------------------------------------
   // SORT BY CHANGE
-  // --------------------------------------------------
-
   const handleSortByChange = (
     newSortBy
   ) => {
@@ -334,10 +291,7 @@ export default function DashboardPage() {
     );
   };
 
-  // --------------------------------------------------
   // SORT ORDER CHANGE
-  // --------------------------------------------------
-
   const handleSortOrderChange = (
     newSortOrder
   ) => {
@@ -361,10 +315,7 @@ export default function DashboardPage() {
     );
   };
 
-  // --------------------------------------------------
   // PAGE CHANGE
-  // --------------------------------------------------
-
   const handlePageChange = (
     newPage
   ) => {
@@ -386,10 +337,7 @@ export default function DashboardPage() {
     );
   };
 
-  // --------------------------------------------------
   // LIMIT CHANGE
-  // --------------------------------------------------
-
   const handleLimitChange = (
     newLimit
   ) => {
@@ -415,10 +363,7 @@ export default function DashboardPage() {
     );
   };
 
-  // --------------------------------------------------
   // ADD PRODUCT
-  // --------------------------------------------------
-
   const handleAddProduct = () => {
     if (
       formLoading ||
@@ -431,10 +376,7 @@ export default function DashboardPage() {
     setShowForm(true);
   };
 
-  // --------------------------------------------------
   // EDIT PRODUCT
-  // --------------------------------------------------
-
   const handleEditProduct = (
     product
   ) => {
@@ -449,10 +391,7 @@ export default function DashboardPage() {
     setShowForm(true);
   };
 
-  // --------------------------------------------------
   // CLOSE FORM
-  // --------------------------------------------------
-
   const handleCloseForm = () => {
     if (formLoading) {
       return;
@@ -462,10 +401,7 @@ export default function DashboardPage() {
     setEditingProduct(null);
   };
 
-  // --------------------------------------------------
   // ADD / EDIT PRODUCT
-  // --------------------------------------------------
-
   const handleSubmitProduct =
     async (productData) => {
       if (formLoading) {
@@ -536,10 +472,7 @@ export default function DashboardPage() {
       }
     };
 
-  // --------------------------------------------------
   // DELETE PRODUCT
-  // --------------------------------------------------
-
   const handleDeleteProduct =
     async (product) => {
       if (deleteLoading) {
@@ -588,10 +521,7 @@ export default function DashboardPage() {
       }
     };
 
-  // --------------------------------------------------
   // LOGOUT
-  // --------------------------------------------------
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem(
@@ -601,10 +531,7 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
-  // --------------------------------------------------
   // NAVBAR
-  // --------------------------------------------------
-
   const renderNavbar = () => {
     return (
       <nav className="bg-white shadow px-4 md:px-6 py-4 flex items-center justify-between">
@@ -622,10 +549,7 @@ export default function DashboardPage() {
     );
   };
 
-  // --------------------------------------------------
   // INVALID PAGE
-  // --------------------------------------------------
-
   const totalPages =
     Math.ceil(total / limit);
 
@@ -677,10 +601,7 @@ export default function DashboardPage() {
     );
   }
 
-  // --------------------------------------------------
   // LOADING
-  // --------------------------------------------------
-
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-100">
@@ -709,10 +630,7 @@ export default function DashboardPage() {
     );
   }
 
-  // --------------------------------------------------
   // ERROR
-  // --------------------------------------------------
-
   if (error) {
     return (
       <main className="min-h-screen bg-gray-100">
@@ -746,10 +664,7 @@ export default function DashboardPage() {
     );
   }
 
-  // --------------------------------------------------
   // DASHBOARD
-  // --------------------------------------------------
-
   return (
     <main className="min-h-screen bg-gray-100">
       {renderNavbar()}
@@ -946,5 +861,21 @@ export default function DashboardPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div className="text-lg font-semibold text-gray-800">
+            Loading dashboard...
+          </div>
+        </main>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
