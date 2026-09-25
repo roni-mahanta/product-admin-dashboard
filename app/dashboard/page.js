@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../lib/axios";
 import ProductTable from "../../components/ProductTable";
+import ProductCard from "../../components/ProductCard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -105,8 +106,23 @@ export default function DashboardPage() {
 
             {/* Products */}
             {!loading && !error && products.length > 0 && (
-              <ProductTable products={products} />
-            )}
+  <>
+    {/* Desktop table */}
+    <div className="hidden md:block">
+      <ProductTable products={products} />
+    </div>
+
+    {/* Mobile cards */}
+    <div className="block md:hidden">
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+        />
+      ))}
+    </div>
+  </>
+)}
 
             {/* Empty */}
             {!loading && !error && products.length === 0 && (
